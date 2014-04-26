@@ -1,4 +1,4 @@
-/*  
+﻿/*  
   FastLZ - lightning-fast lossless compression library
 
   Copyright (C) 2007 Ariya Hidayat (ariya@kde.org)

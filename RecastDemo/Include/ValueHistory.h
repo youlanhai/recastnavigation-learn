@@ -1,4 +1,4 @@
-#ifndef VALUEHISTORY_H
+﻿#ifndef VALUEHISTORY_H
 #define VALUEHISTORY_H
 
 class ValueHistory

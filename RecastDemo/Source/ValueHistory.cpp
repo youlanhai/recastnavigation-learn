@@ -1,4 +1,4 @@
-#include "ValueHistory.h"
+﻿#include "ValueHistory.h"
 #include "imgui.h"
 #include <string.h>
 #include <stdio.h>

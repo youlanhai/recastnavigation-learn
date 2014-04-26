@@ -1,4 +1,4 @@
-// stb_truetype.h - v0.3 - public domain - 2009 Sean Barrett / RAD Game Tools
+﻿// stb_truetype.h - v0.3 - public domain - 2009 Sean Barrett / RAD Game Tools
 //
 //   This library processes TrueType files:
 //        parse files

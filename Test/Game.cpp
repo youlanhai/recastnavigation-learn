@@ -1,4 +1,4 @@
-//Game.cpp
+﻿//Game.cpp
 #include "Game.h"
 
 #include "..\Recast\Recast.h"

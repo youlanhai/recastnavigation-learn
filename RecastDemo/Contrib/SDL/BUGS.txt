@@ -1,4 +1,4 @@
-
+﻿
 Bugs are now managed in the SDL bug tracker, here:
 
     http://bugzilla.libsdl.org/

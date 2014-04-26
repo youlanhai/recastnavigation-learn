@@ -1,4 +1,4 @@
-
+﻿
 This is a list of API changes in SDL's version history.
 
 Version 1.0:

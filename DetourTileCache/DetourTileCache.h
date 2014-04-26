@@ -1,4 +1,4 @@
-#ifndef DETOURTILECACHE_H
+﻿#ifndef DETOURTILECACHE_H
 #define DETOURTILECACHE_H
 
 #include "DetourStatus.h"
