@@ -1,0 +1,151 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Contrib\fastlz\fastlz.c" />
+    <ClCompile Include="..\..\Source\ChunkyTriMesh.cpp" />
+    <ClCompile Include="..\..\Source\ConvexVolumeTool.cpp" />
+    <ClCompile Include="..\..\Source\CrowdTool.cpp" />
+    <ClCompile Include="..\..\Source\Filelist.cpp" />
+    <ClCompile Include="..\..\Source\imgui.cpp" />
+    <ClCompile Include="..\..\Source\imguiRenderGL.cpp" />
+    <ClCompile Include="..\..\Source\InputGeom.cpp" />
+    <ClCompile Include="..\..\Source\main.cpp" />
+    <ClCompile Include="..\..\Source\MeshLoaderObj.cpp" />
+    <ClCompile Include="..\..\Source\NavMeshPruneTool.cpp" />
+    <ClCompile Include="..\..\Source\NavMeshTesterTool.cpp" />
+    <ClCompile Include="..\..\Source\OffMeshConnectionTool.cpp" />
+    <ClCompile Include="..\..\Source\PerfTimer.cpp" />
+    <ClCompile Include="..\..\Source\Sample.cpp" />
+    <ClCompile Include="..\..\Source\SampleInterfaces.cpp" />
+    <ClCompile Include="..\..\Source\Sample_Debug.cpp" />
+    <ClCompile Include="..\..\Source\Sample_SoloMesh.cpp" />
+    <ClCompile Include="..\..\Source\Sample_TempObstacles.cpp" />
+    <ClCompile Include="..\..\Source\Sample_TileMesh.cpp" />
+    <ClCompile Include="..\..\Source\SlideShow.cpp" />
+    <ClCompile Include="..\..\Source\TestCase.cpp" />
+    <ClCompile Include="..\..\Source\ValueHistory.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Contrib\fastlz\fastlz.h" />
+    <ClInclude Include="..\..\Include\ChunkyTriMesh.h" />
+    <ClInclude Include="..\..\Include\ConvexVolumeTool.h" />
+    <ClInclude Include="..\..\Include\CrowdTool.h" />
+    <ClInclude Include="..\..\Include\Filelist.h" />
+    <ClInclude Include="..\..\Include\imgui.h" />
+    <ClInclude Include="..\..\Include\imguiRenderGL.h" />
+    <ClInclude Include="..\..\Include\InputGeom.h" />
+    <ClInclude Include="..\..\Include\MeshLoaderObj.h" />
+    <ClInclude Include="..\..\Include\NavmeshPruneTool.h" />
+    <ClInclude Include="..\..\Include\NavMeshTesterTool.h" />
+    <ClInclude Include="..\..\Include\OffMeshConnectionTool.h" />
+    <ClInclude Include="..\..\Include\PerfTimer.h" />
+    <ClInclude Include="..\..\Include\Sample.h" />
+    <ClInclude Include="..\..\Include\SampleInterfaces.h" />
+    <ClInclude Include="..\..\Include\Sample_Debug.h" />
+    <ClInclude Include="..\..\Include\Sample_SoloMesh.h" />
+    <ClInclude Include="..\..\Include\Sample_TempObstacles.h" />
+    <ClInclude Include="..\..\Include\Sample_TileMesh.h" />
+    <ClInclude Include="..\..\Include\SDLMain.h" />
+    <ClInclude Include="..\..\Include\SlideShow.h" />
+    <ClInclude Include="..\..\Include\TestCase.h" />
+    <ClInclude Include="..\..\Include\ValueHistory.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{CEF242C5-E9A3-403B-BAFF-99397BDA5730}</ProjectGuid>
+    <RootNamespace>RecastDemo</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\Bin\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\Bin\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>..\..\Contrib\fastlz;..\..\Contrib\SDL\include;..\..\Include;..\..\..\DetourCrowd;..\..\..\Detour;..\..\..\DebugUtils;..\..\..\Recast;..\..\Contrib;..\..\..\DetourTileCache;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>opengl32.lib;glu32.lib;sdlmain.lib;sdl.lib;Recast.lib;Detour.lib;DetourCrowd.lib;DetourTileCache.lib;DebugUtils.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\..\Contrib\SDL\lib;..\..\..\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <CLRThreadAttribute>DefaultThreadingAttribute</CLRThreadAttribute>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>..\..\Contrib\fastlz;..\..\Contrib\SDL\include;..\..\Include;..\..\..\DetourCrowd;..\..\..\Detour;..\..\..\DebugUtils;..\..\..\Recast;..\..\Contrib;..\..\..\DetourTileCache;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>opengl32.lib;glu32.lib;sdlmain.lib;sdl.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\..\Contrib\SDL\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
