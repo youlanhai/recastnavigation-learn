@@ -1,5 +1,4 @@
-﻿CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-
+﻿
 SET(recastdemo_SRCS 
 	Source/ChunkyTriMesh.cpp
 	Source/ConvexVolumeTool.cpp
@@ -62,11 +61,11 @@ FIND_PACKAGE(SDL REQUIRED)
 INCLUDE_DIRECTORIES(Include 
 	Contrib
 	Contrib/fastlz
-	../DebugUtils/Include
-	../Detour/Include
-	../DetourCrowd/Include
-	../DetourTileCache/Include
-	../Recast/Include
+	../DebugUtils
+	../Detour
+	../DetourCrowd
+	../DetourTileCache
+	../Recast
 	${SDL_INCLUDE_DIR}
 )
 
@@ -85,5 +84,8 @@ IF(MSVC)
 	SET_TARGET_PROPERTIES(RecastDemo PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/OPT:REF /OPT:ICF")
 ENDIF(MSVC)
 
-SET(EXECUTABLE_OUTPUT_PATH ${RecastNavigation_SOURCE_DIR}/RecastDemo/Bin)
+SET_TARGET_PROPERTIES(RecastDemo PROPERTIES 
+	RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_SOURCE_DIR}/Bin
+	RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/Bin
+)
 
