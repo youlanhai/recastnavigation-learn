@@ -605,6 +605,14 @@ static bool isSolidEdge(rcCompactHeightfield& chf, unsigned short* srcReg,
 	return true;
 }
 
+/// 沿着地区的边上走一圈，确定地区相邻的所有其他地区。
+/// @param x    起点单元格坐标
+/// @param y    起点单元格坐标
+/// @param i    span索引
+/// @param dir  当前要搜索的方向
+/// @param chf  开放高度场
+/// @param srcReg 地区数组
+/// @param cont 向外输出邻接地区编号
 static void walkContour(int x, int y, int i, int dir,
 						rcCompactHeightfield& chf,
 						unsigned short* srcReg,
@@ -714,6 +722,7 @@ static bool filterSmallRegions(rcContext* ctx, int minRegionArea, int mergeRegio
 		new(&regions[i]) rcRegion((unsigned short)i);
 	
 	// Find edge of a region and find connections around the contour.
+    // 找到地区的边界，并且找出地区邻接的其他地区
 	for (int y = 0; y < h; ++y)
 	{
 		for (int x = 0; x < w; ++x)
@@ -789,6 +798,7 @@ static bool filterSmallRegions(rcContext* ctx, int minRegionArea, int mergeRegio
 		reg.visited = true;
 		stack.push(i);
 		
+        // 计算当前地区与周围地区的面积之和(span之和)
 		while (stack.size())
 		{
 			// Pop
@@ -821,6 +831,7 @@ static bool filterSmallRegions(rcContext* ctx, int minRegionArea, int mergeRegio
 		// Do not remove areas which connect to tile borders
 		// as their size cannot be estimated correctly and removing them
 		// can potentially remove necessary areas.
+        // 如果当前地区与周围地区总面积太小，就移除它。但是如果是和边界相邻，就不能移除，否则可能会造成错误的结果
 		if (spanCount < minRegionArea && !connectsToBorder)
 		{
 			// Kill all visited regions.
@@ -833,6 +844,7 @@ static bool filterSmallRegions(rcContext* ctx, int minRegionArea, int mergeRegio
 	}
 		
 	// Merge too small regions to neighbour regions.
+    // 将太小的地区合并到周围的邻居上
 	int mergeCount = 0 ;
 	do
 	{
@@ -999,7 +1011,7 @@ bool rcBuildDistanceField(rcContext* ctx, rcCompactHeightfield& chf)
 	return true;
 }
 
-//将这个区域标记为regID
+//将这个可走区域标记为regID
 static void paintRectRegion(int minx, int maxx, int miny, int maxy, unsigned short regId,
 							rcCompactHeightfield& chf, unsigned short* srcReg)
 {
@@ -1021,15 +1033,19 @@ static void paintRectRegion(int minx, int maxx, int miny, int maxy, unsigned sho
 
 static const unsigned short RC_NULL_NEI = 0xffff;
 
+/// 逐行扫描区间
 struct rcSweepSpan
 {
+    // 一行内的id。连续的区间，id相同
 	unsigned short rid;	// row id
+    // 当前点的地区id
 	unsigned short id;	// region id
+    // 采样次数
 	unsigned short ns;	// number samples
+    // 上侧邻接点的地区id。
 	unsigned short nei;	// neighbour id
 };
 
-//简单的创建区域
 /// @par
 /// 
 /// Non-null regions will consist of connected, non-overlapping walkable spans that form a single contour.
@@ -1049,6 +1065,11 @@ struct rcSweepSpan
 /// @warning The distance field must be created using #rcBuildDistanceField before attempting to build regions.
 /// 
 /// @see rcCompactHeightfield, rcCompactSpan, rcBuildDistanceField, rcBuildRegionsMonotone, rcConfig
+/// 简单的创建地区。非空的地区由相连的、非重叠的可走区间组成，形成一个单一的轮廓。轮廓再形成一个简单多边形。
+/// 如果多个地区的组成的面积小于minRegionArea，那么所有的区间将会被重新标记为无地区。
+/// 划分可能导致过小的地区，mergeRegionArea将会用来消除不必要的小地区。
+/// 地区的数据可以通过rcCompactHeighfield::maxRegions和rcCompactSpan::reg属性来访问。
+/// 警告：在尝试生成地区之前，必须先调用函数rcBuildDistanceField来生成距离属性。
 bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 							const int borderSize, const int minRegionArea, const int mergeRegionArea)
 {
@@ -1076,7 +1097,9 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 		return false;
 	}
 	
-	//标记边框区域
+	// 标记地图边缘区域为RC_BORDER_REG。
+    // 边缘是指在整个地图的四周边缘设定一个宽度，在宽度内的地区进行标记。
+    // 边缘上的地区通常认为是不可走的。
 	// Mark border regions.
 	if (borderSize > 0)
 	{
@@ -1084,9 +1107,13 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 		const int bw = rcMin(w, borderSize);
 		const int bh = rcMin(h, borderSize);
 		// Paint regions
+        // 标记左边界地区
 		paintRectRegion(0, bw, 0, h, id|RC_BORDER_REG, chf, srcReg); id++;
+        // 标记右边界地区
 		paintRectRegion(w-bw, w, 0, h, id|RC_BORDER_REG, chf, srcReg); id++;
+        // 标记上边界地区
 		paintRectRegion(0, w, 0, bh, id|RC_BORDER_REG, chf, srcReg); id++;
+        // 标记下边界地区
 		paintRectRegion(0, w, h-bh, h, id|RC_BORDER_REG, chf, srcReg); id++;
 		
 		chf.borderSize = borderSize;
@@ -1094,15 +1121,18 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 	
 	rcIntArray prev(256);
 
-    //每次交换一行
+    // 处理非边界地区。每次扫描一行
+    // 从地图左上角开始，向右下角逐一处理
 	// Sweep one line at a time.
 	for (int y = borderSize; y < h-borderSize; ++y)
 	{
 		// Collect spans from this row.
 		prev.resize(id+1);
 		memset(&prev[0],0,sizeof(int)*id);
+        // 一行内的id，只要中间断开了，行id就加1
 		unsigned short rid = 1;
-		
+		// 类似光栅化一样，从左侧到右侧逐一扫描，让右侧的地区编号尽量与左侧和上侧的保持一致。
+        // 如果中途遇到障碍物断开了，断开点向后的点可以归为新的区域id。
 		for (int x = borderSize; x < w-borderSize; ++x)
 		{
 			const rcCompactCell& c = chf.cells[x+y*w];
@@ -1112,18 +1142,19 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 				const rcCompactSpan& s = chf.spans[i];
 				if (chf.areas[i] == RC_NULL_AREA) continue;
 				
-				// -x
+				// -x 先判断左侧，跟左侧点的地区编号保持相同
 				unsigned short previd = 0;
 				if (rcGetCon(s, 0) != RC_NOT_CONNECTED)
 				{
 					const int ax = x + rcGetDirOffsetX(0);
 					const int ay = y + rcGetDirOffsetY(0);
 					const int ai = (int)chf.cells[ax+ay*w].index + rcGetCon(s, 0);
-					if ((srcReg[ai] & RC_BORDER_REG) == 0 && chf.areas[i] == chf.areas[ai])
+					if ((srcReg[ai] & RC_BORDER_REG) == 0 && // 邻接点不是地图边缘
+                        chf.areas[i] == chf.areas[ai]) // 可走标记也相同
 						previd = srcReg[ai];
 				}
 				
-				if (!previd)
+				if (!previd) // 如果左侧没有地区标记，那么新建一个地区。
 				{
 					previd = rid++;
 					sweeps[previd].rid = previd;
@@ -1131,7 +1162,7 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 					sweeps[previd].nei = 0;
 				}
 
-				// -y
+				// -y 然后判断上方，如果左侧还没确定下来，那么采用上侧的。
 				if (rcGetCon(s,3) != RC_NOT_CONNECTED)
 				{
 					const int ax = x + rcGetDirOffsetX(3);
@@ -1140,14 +1171,16 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 					if (srcReg[ai] && (srcReg[ai] & RC_BORDER_REG) == 0 && chf.areas[i] == chf.areas[ai])
 					{
 						unsigned short nr = srcReg[ai];
-						if (!sweeps[previd].nei || sweeps[previd].nei == nr)
+						if (!sweeps[previd].nei || //在左侧还没有邻接点
+                            sweeps[previd].nei == nr)//与左侧在同一个地区
 						{
 							sweeps[previd].nei = nr;
-							sweeps[previd].ns++;
+							sweeps[previd].ns++; // 增加采样计数
 							prev[nr]++;
 						}
 						else
 						{
+                            // 左侧和上侧的不在同一个区域，也就是说他的连接关系与上方断开了，就没有邻居。
 							sweeps[previd].nei = RC_NULL_NEI;
 						}
 					}

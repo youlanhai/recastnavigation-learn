@@ -301,6 +301,7 @@ void rcClearUnwalkableTriangles(rcContext* /*ctx*/, const float walkableSlopeAng
 	}
 }
 
+/// 统计高度场中可行走区间的数量
 int rcGetHeightFieldSpanCount(rcContext* /*ctx*/, rcHeightfield& hf)
 {
 	// TODO: VC complains about unref formal variable, figure out a way to handle this better.
@@ -332,6 +333,7 @@ int rcGetHeightFieldSpanCount(rcContext* /*ctx*/, rcHeightfield& hf)
 /// See the #rcConfig documentation for more information on the configuration parameters.
 ///
 /// @see rcAllocCompactHeightfield, rcHeightfield, rcCompactHeightfield, rcConfig
+/// 生成紧凑型高度场。这仅仅是生成紧凑型高度场的开始，使用多种过滤器进行过滤，然后生成地区。
 bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const int walkableClimb,
 							   rcHeightfield& hf, rcCompactHeightfield& chf)
 {
@@ -352,6 +354,7 @@ bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const i
 	chf.maxRegions = 0;
 	rcVcopy(chf.bmin, hf.bmin);
 	rcVcopy(chf.bmax, hf.bmax);
+    // 在y方向上扩张一个可走高度
 	chf.bmax[1] += walkableHeight*hf.ch;
 	chf.cs = hf.cs;
 	chf.ch = hf.ch;
@@ -380,7 +383,8 @@ bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const i
 	const int MAX_HEIGHT = 0xffff;
 	
 	// Fill in cells and spans.
-	int idx = 0;
+    // 将实体span转换成紧凑型span，填充在新的单元格中
+	int idx = 0; // span在数组中索引
 	for (int y = 0; y < h; ++y)
 	{
 		for (int x = 0; x < w; ++x)
@@ -395,8 +399,11 @@ bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const i
 			{
 				if (s->area != RC_NULL_AREA)
 				{
+                    // 以旧span的顶部，作为新span的底部
 					const int bot = (int)s->smax;
+                    // 以下一个span的底部，作为新span的顶部。如果没有下一个span，就取无穷远处
 					const int top = s->next ? (int)s->next->smin : MAX_HEIGHT;
+                    
 					chf.spans[idx].y = (unsigned short)rcClamp(bot, 0, 0xffff);
 					chf.spans[idx].h = (unsigned char)rcClamp(top - bot, 0, 0xff);
 					chf.areas[idx] = s->area;
@@ -409,6 +416,7 @@ bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const i
 	}
 
 	// Find neighbour connections.
+    // 找出每个span可以连接的邻接span
 	const int MAX_LAYERS = RC_NOT_CONNECTED-1;
 	int tooHighNeighbour = 0;
 	for (int y = 0; y < h; ++y)
@@ -420,9 +428,13 @@ bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const i
 			{
 				rcCompactSpan& s = chf.spans[i];
 				
+                // 遍历4个邻接点
 				for (int dir = 0; dir < 4; ++dir)
 				{
+                    // 先标记为无连接
 					rcSetCon(s, dir, RC_NOT_CONNECTED);
+
+                    // 邻接点的索引 i = nx + ny * w;
 					const int nx = x + rcGetDirOffsetX(dir);
 					const int ny = y + rcGetDirOffsetY(dir);
 
@@ -433,6 +445,7 @@ bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const i
 						
 					// Iterate over all neighbour spans and check if any of the is
 					// accessible from current cell.
+                    // 遍历所有的邻接区间，检查是否可以从当前区间访问。
 					const rcCompactCell& nc = chf.cells[nx+ny*w];
 					for (int k = (int)nc.index, nk = (int)(nc.index+nc.count); k < nk; ++k)
 					{
@@ -445,11 +458,13 @@ bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const i
                         
 						// Check that the gap between the spans is walkable,
 						// and that the climb height between the gaps is not too high.
-						if ((top - bot) >= walkableHeight && rcAbs((int)ns.y - (int)s.y) <= walkableClimb)
+						if ((top - bot) >= walkableHeight && // 两者之间至少能够可以站一个人
+                            rcAbs((int)ns.y - (int)s.y) <= walkableClimb // 起点之间的高度差，在可爬过的范围内。
+                            )
 						{
 							// Mark direction as walkable.
-							const int lidx = k - (int)nc.index;
-							if (lidx < 0 || lidx > MAX_LAYERS)
+							const int lidx = k - (int)nc.index; // 存贮相对索引，减小数据量
+							if (lidx < 0 || lidx > MAX_LAYERS) // 检查索引是否超过数据最大限度
 							{
 								tooHighNeighbour = rcMax(tooHighNeighbour, lidx);
 								continue;

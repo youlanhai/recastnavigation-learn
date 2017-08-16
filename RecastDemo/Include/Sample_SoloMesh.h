@@ -28,13 +28,21 @@ class Sample_SoloMesh : public Sample
 protected:
 	bool m_keepInterResults;
 	float m_totalBuildTimeMs;
-
+    
+    // 配置信息
+    rcConfig m_cfg;
+    
+    // 三角形的可通行标记
 	unsigned char* m_triareas;
+    // 实心高度场
 	rcHeightfield* m_solid;
+    // 开放的紧凑型高度场
 	rcCompactHeightfield* m_chf;
+    // 轮廓集合
 	rcContourSet* m_cset;
+    // 多边形网格
 	rcPolyMesh* m_pmesh;
-	rcConfig m_cfg;	
+    // 精细的多边形网格。高度信息更精确。
 	rcPolyMeshDetail* m_dmesh;
 	
 	enum DrawMode

@@ -23,11 +23,16 @@
 #include "MeshLoaderObj.h"
 
 static const int MAX_CONVEXVOL_PTS = 12;
+/// 凸多边形体。是一个柱状凸多边形，xz平面最多12边。
 struct ConvexVolume
 {
+    // 凸多边形的顶点数据
 	float verts[MAX_CONVEXVOL_PTS*3];
+    // 高度值的最小和最大值
 	float hmin, hmax;
+    // 顶点数量
 	int nverts;
+    // 该区域标记
 	int area;
 };
 

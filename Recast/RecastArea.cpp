@@ -26,9 +26,8 @@
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
 
-//任何接近边界或者障碍物距离小于半径的span，都会被标记为不可走。
-//改方法通常在heightfield被创建之后立即被调用。
-
+///收紧可走区域。任何接近边界或者障碍物距离小于人物半径的span，都会被标记为不可走。(防止人物撞墙)
+///该方法通常在高度场被创建之后立即被调用。
 /// @par 
 /// 
 /// Basically, any spans that are closer to a boundary or obstruction than the specified radius 
@@ -46,6 +45,7 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 	
 	ctx->startTimer(RC_TIMER_ERODE_AREA);
 	
+    // 每个点距离障碍物的距离
 	unsigned char* dist = (unsigned char*)rcAlloc(sizeof(unsigned char)*chf.spanCount, RC_ALLOC_TEMP);
 	if (!dist)
 	{
@@ -54,6 +54,7 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 	}
 	
 	// Init distance.
+    // 先假设所有物体都不邻接这障碍，把距离初始化为“无穷远”
 	memset(dist, 0xff, sizeof(unsigned char)*chf.spanCount);
 	
     //标记单元格
@@ -68,7 +69,7 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 			{
 				if (chf.areas[i] == RC_NULL_AREA)
 				{
-					dist[i] = 0;
+					dist[i] = 0; // 该点本身就是障碍，距离必然是0
 				}
 				else
 				{
@@ -89,7 +90,7 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 						}
 					}
 
-                    //至少缺一个邻接
+                    //至少缺一个邻接，说明旁边存在障碍物，那么距离障碍物距离就是0.
 					// At least one missing neighbour.
 					if (nc != 4)
 						dist[i] = 0;
@@ -101,6 +102,7 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 	unsigned char nd;
 	
 	// Pass 1
+    // 阶段1，从左上方开始，向右下方进行标记，逐级累加出障碍距离。
 	for (int y = 0; y < h; ++y)
 	{
 		for (int x = 0; x < w; ++x)
@@ -119,6 +121,7 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 					const int ay = y + rcGetDirOffsetY(0);
 					const int ai = (int)chf.cells[ax+ay*w].index + rcGetCon(s, 0);
 					const rcCompactSpan& as = chf.spans[ai];
+                    // 距离放大两倍，方便斜方向上距离存贮。
 					nd = (unsigned char)rcMin((int)dist[ai]+2, 255);
 					if (nd < dist[i])
 						dist[i] = nd;
@@ -130,6 +133,7 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 						const int aax = ax + rcGetDirOffsetX(3);
 						const int aay = ay + rcGetDirOffsetY(3);
 						const int aai = (int)chf.cells[aax+aay*w].index + rcGetCon(as, 3);
+                        // 距离放大两倍。斜着走的距离应该是根号2(1.414)，乘2之后，约等于3。
 						nd = (unsigned char)rcMin((int)dist[aai]+3, 255);
 						if (nd < dist[i])
 							dist[i] = nd;
@@ -164,6 +168,7 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 	}
 	
 	// Pass 2
+    // 阶段2，从右下角开始，向左上角方向标记。逐级累加出障碍距离。
 	for (int y = h-1; y >= 0; --y)
 	{
 		for (int x = w-1; x >= 0; --x)
@@ -221,9 +226,10 @@ bool rcErodeWalkableArea(rcContext* ctx, int radius, rcCompactHeightfield& chf)
 		}
 	}
 	
-	const unsigned char thr = (unsigned char)(radius*2);//直径
+    // 用半径的2倍进行计算，因为dist数组中的值是放大了2倍的。
+	const unsigned char thr = (unsigned char)(radius*2);
 	for (int i = 0; i < chf.spanCount; ++i)
-		if (dist[i] < thr)
+		if (dist[i] < thr) // 距离障碍够近。
 			chf.areas[i] = RC_NULL_AREA;
 	
 	rcFree(dist);
@@ -375,14 +381,19 @@ void rcMarkBoxArea(rcContext* ctx, const float* bmin, const float* bmax, unsigne
 
 }
 
-
+/// 判断点是否在二维凸多边形中。这里只判断x-z平面
+/// @param verts    凸多边形的顶点
+/// @param nverts   多边形顶点数
+/// @param p        待判断的点的3维坐标。
 static int pointInPoly(int nvert, const float* verts, const float* p)
 {
+    // i当前点索引，j上一个点索引。c为结果。
 	int i, j, c = 0;
 	for (i = 0, j = nvert-1; i < nvert; j = i++)
 	{
 		const float* vi = &verts[i*3];
 		const float* vj = &verts[j*3];
+        // ？下面的算法没看懂
 		if (((vi[2] > p[2]) != (vj[2] > p[2])) &&
 			(p[0] < (vj[0]-vi[0]) * (p[2]-vi[2]) / (vj[2]-vi[2]) + vi[0]) )
 			c = !c;
@@ -398,6 +409,7 @@ static int pointInPoly(int nvert, const float* verts, const float* p)
 /// projected onto the xz-plane at @p hmin, then extruded to @p hmax.
 /// 
 /// @see rcCompactHeightfield, rcMedianFilterWalkableArea
+/// 标记凸多边形区域。多边形的y值可以忽略，因此多边形被高效的投影到xz平面，以hmin为底，hmax为顶的柱状体。
 void rcMarkConvexPolyArea(rcContext* ctx, const float* verts, const int nverts,
 						  const float hmin, const float hmax, unsigned char areaId,
 						  rcCompactHeightfield& chf)
@@ -448,11 +460,13 @@ void rcMarkConvexPolyArea(rcContext* ctx, const float* verts, const int nverts,
 					continue;
 				if ((int)s.y >= miny && (int)s.y <= maxy)
 				{
+                    // 计算当前span的物理坐标
 					float p[3];
 					p[0] = chf.bmin[0] + (x+0.5f)*chf.cs; 
 					p[1] = 0;
 					p[2] = chf.bmin[2] + (z+0.5f)*chf.cs; 
 
+                    // 判断当前点是否在凸包中
 					if (pointInPoly(nverts, verts, p))
 					{
 						chf.areas[i] = areaId;

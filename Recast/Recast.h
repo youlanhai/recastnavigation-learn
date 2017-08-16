@@ -268,7 +268,7 @@ static const int RC_SPAN_MAX_HEIGHT = (1<<RC_SPAN_HEIGHT_BITS)-1;
 /// @see rcSpanPool
 static const int RC_SPANS_PER_POOL = 2048;
 
-/// 表示高度域的一个区间。在同一y值上，rcSpane区间可以连接起来，构成一个链表。
+/// 表示高度域的一个区间。在垂直方向上，rcSpane区间可以连接起来，构成一个链表。
 /// Represents a span in a heightfield.
 /// @see rcHeightfield
 struct rcSpan
@@ -278,7 +278,8 @@ struct rcSpan
 	unsigned int smax : 13;			///< The upper limit of the span. [Limit: <= #RC_SPAN_MAX_HEIGHT]
 	//area表示是否可走
     unsigned int area : 6;			///< The area id assigned to the span.
-	rcSpan* next;					///< The next span higher up in column. 链表的下个结点
+    //链表的下个结点
+	rcSpan* next;					///< The next span higher up in column.
 };
 
 //一个内存池，用于快速分配rcSpan
@@ -291,43 +292,55 @@ struct rcSpanPool
 	rcSpan items[RC_SPANS_PER_POOL];	///< Array of spans in the pool.
 };
 
-//一个动态的高度区域，表示障碍空间
+/// 一个动态的高度区域，表示障碍空间
 /// A dynamic heightfield representing obstructed space.
 /// @ingroup recast
 struct rcHeightfield
 {
+    // 单元格数量。n = width * height
 	int width;			///< The width of the heightfield. (Along the x-axis in cell units.)
 	int height;			///< The height of the heightfield. (Along the z-axis in cell units.)
+    // 高度场的包围盒
 	float bmin[3];  	///< The minimum bounds in world space. [(x, y, z)]
 	float bmax[3];		///< The maximum bounds in world space. [(x, y, z)]
+    // 单元格水平方向尺寸
 	float cs;			///< The size of each cell. (On the xz-plane.)
+    // 单元格垂直方向尺寸
 	float ch;			///< The height of each cell. (The minimum increment along the y-axis.)
+    // 二维span数组，代表了单元格
 	rcSpan** spans;		///< Heightfield of spans (width*height).
+    
+    // span内存池
 	rcSpanPool* pools;	///< Linked list of span pools.
+    // 空闲的span
 	rcSpan* freelist;	///< The next free span.
 };
 
-/// Provides information on the content of a cell column in a compact heightfield. 
+/// Provides information on the content of a cell column in a compact heightfield.
+/// 紧凑型单元格。具体的span数据存放在了紧凑型高度场的span数组中，这里仅记录下span在数组中的索引
 struct rcCompactCell
 {
+    // 该单元格中，第一个span在span数组中的索引
 	unsigned int index : 24;	///< Index to the first span in the column.
+    // 该单元格中，span的数量
 	unsigned int count : 8;		///< Number of spans in the column.
 };
 
-//表示紧密高度域中无障碍的一段区域。
+/// 紧凑型span。表示紧密高度域中无障碍的一段区域。
 /// Represents a span of unobstructed space within a compact heightfield.
 struct rcCompactSpan
 {
-    //域起点的y值
+    //区间起点的y值。y+h，可以描述一段区间
 	unsigned short y;			///< The lower extent of the span. (Measured from the heightfield's base.)
+    
 	unsigned short reg;			///< The id of the region the span belongs to. (Or zero if not in a region.)
-	//邻接数据
+	//4个邻接数据。每个邻接点用6bit数据记录。
     unsigned int con : 24;		///< Packed neighbor connection data.
-	//域的高度
+	//区间的高度
     unsigned int h : 8;			///< The height of the span.  (Measured from #y.)
 };
 
-//一个紧密、静态的高度域，表示了无障碍空间。
+/// 一个紧密、开放的高度域，表示了无障碍空间。
 /// A compact, static heightfield representing unobstructed space.
 /// @ingroup recast
 struct rcCompactHeightfield
@@ -336,23 +349,32 @@ struct rcCompactHeightfield
 	int width;					///< The width of the heightfield. (Along the x-axis in cell units.)
     //cell延z轴方向的个数
 	int height;					///< The height of the heightfield. (Along the z-axis in cell units.)
+    // spans数组的元素个数。实心span和开放span的数量必然是相等的。
 	int spanCount;				///< The number of spans in the heightfield.
 	int walkableHeight;			///< The walkable height used during the build of the field.  (See: rcConfig::walkableHeight)
 	int walkableClimb;			///< The walkable climb used during the build of the field. (See: rcConfig::walkableClimb)
+    
 	int borderSize;				///< The AABB border size used during the build of the field. (See: rcConfig::borderSize)
-	unsigned short maxDistance;	///< The maximum distance value of any span within the field. 
-	unsigned short maxRegions;	///< The maximum region id of any span within the field. 
+    
+	unsigned short maxDistance;	///< The maximum distance value of any span within the field.
+    
+	unsigned short maxRegions;	///< The maximum region id of any span within the field.
+    // 整个高度场的包围盒
 	float bmin[3];				///< The minimum bounds in world space. [(x, y, z)]
 	float bmax[3];				///< The maximum bounds in world space. [(x, y, z)]
+    // 单元格水平方向的物理尺寸
 	float cs;					///< The size of each cell. (On the xz-plane.)
+    // 单元格垂直方向的物理尺寸
 	float ch;					///< The height of each cell. (The minimum increment along the y-axis.)
 	
-    //rcCompactCell作为索引，指向了rcCompactSpan
-    //二维数组的线性表示
+    // rcCompactCell作为索引，指向了rcCompactSpan
+    // 二维数组的线性表示
     rcCompactCell* cells;		///< Array of cells. [Size: #width*#height]
-    //可通行区域数据。
+    // 可通行区域的一围数据数组。这里集中记录了所有的span，cell中仅记录下span的在该数组中的索引。
 	rcCompactSpan* spans;		///< Array of spans. [Size: #spanCount]
+    
 	unsigned short* dist;		///< Array containing border distance data. [Size: #spanCount]
+    // 每个span对应的可通行标记
 	unsigned char* areas;		///< Array containing area id data. [Size: #spanCount]
 };
 
@@ -1056,6 +1078,8 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 ///  @param[in]		s		The span to update.
 ///  @param[in]		dir		The direction to set. [Limits: 0 <= value < 4]
 ///  @param[in]		i		The index of the neighbor span.
+/// 设置指定方向上的邻接点连接数据。每个方向(共4个方向)用6bit来存贮，总共需要24bit。
+/// i为邻接span的相对索引，相对于邻接cell的第一个span
 inline void rcSetCon(rcCompactSpan& s, int dir, int i)
 {
 	const unsigned int shift = (unsigned int)dir*6;//每个邻接信息占6bit 0x3f为6bit掩码
