@@ -351,7 +351,7 @@ void Sample_SoloMesh::handleMeshChanged(class InputGeom* geom)
 	initToolStates(this);
 }
 
-
+/// 生成NavMesh
 bool Sample_SoloMesh::handleBuild()
 {
 	if (!m_geom || !m_geom->getMesh())
@@ -362,16 +362,19 @@ bool Sample_SoloMesh::handleBuild()
 	
 	cleanup();
 	
+    // 模型包围盒
 	const float* bmin = m_geom->getMeshBoundsMin();
 	const float* bmax = m_geom->getMeshBoundsMax();
+    // 顶点数据
 	const float* verts = m_geom->getMesh()->getVerts();
 	const int nverts = m_geom->getMesh()->getVertCount();
+    // 三角形(索引)数据
 	const int* tris = m_geom->getMesh()->getTris();
 	const int ntris = m_geom->getMesh()->getTriCount();
 	
 	//
 	// Step 1. Initialize build config.
-	//
+	// 步骤1：初始化配置信息
 	
 	// Init build configuration from GUI
 	memset(&m_cfg, 0, sizeof(m_cfg));
@@ -392,8 +395,10 @@ bool Sample_SoloMesh::handleBuild()
 	// Set the area where the navigation will be build.
 	// Here the bounds of the input mesh are used, but the
 	// area could be specified by an user defined box, etc.
+    // 包围盒也可以有用户指定，包围盒外的物体不会参与计算。
 	rcVcopy(m_cfg.bmin, bmin);
 	rcVcopy(m_cfg.bmax, bmax);
+    // 计算格子的数量
 	rcCalcGridSize(m_cfg.bmin, m_cfg.bmax, m_cfg.cs, &m_cfg.width, &m_cfg.height);
 
 	// Reset build times gathering.
@@ -408,15 +413,17 @@ bool Sample_SoloMesh::handleBuild()
 	
 	//
 	// Step 2. Rasterize input polygon soup.
-	//
+	// 步骤2：光栅化输入的多边形
 	
 	// Allocate voxel heightfield where we rasterize our input data to.
+    // 分配高度域，用来存贮光栅化之后的体素数据。
 	m_solid = rcAllocHeightfield();
 	if (!m_solid)
 	{
 		m_ctx->log(RC_LOG_ERROR, "buildNavigation: Out of memory 'solid'.");
 		return false;
 	}
+    // 分配空间(二维网格，每个格子是一个rcSpan链表)。
 	if (!rcCreateHeightfield(m_ctx, *m_solid, m_cfg.width, m_cfg.height, m_cfg.bmin, m_cfg.bmax, m_cfg.cs, m_cfg.ch))
 	{
 		m_ctx->log(RC_LOG_ERROR, "buildNavigation: Could not create solid heightfield.");
@@ -426,6 +433,7 @@ bool Sample_SoloMesh::handleBuild()
 	// Allocate array that can hold triangle area types.
 	// If you have multiple meshes you need to process, allocate
 	// and array which can hold the max number of triangles you need to process.
+    // 三角形数组，用来存贮三角形是否可行走。也就是看坡度是否低于最大阀值。
 	m_triareas = new unsigned char[ntris];
 	if (!m_triareas)
 	{
@@ -437,9 +445,13 @@ bool Sample_SoloMesh::handleBuild()
 	// If your input data is multiple meshes, you can transform them here, calculate
 	// the are type for each of the meshes and rasterize them.
 	memset(m_triareas, 0, ntris*sizeof(unsigned char));
+    // 标记处可行走的三角形
 	rcMarkWalkableTriangles(m_ctx, m_cfg.walkableSlopeAngle, verts, nverts, tris, ntris, m_triareas);
+    
+    // 栅格化三角形，转换成体素。
 	rcRasterizeTriangles(m_ctx, verts, nverts, tris, m_triareas, ntris, *m_solid, m_cfg.walkableClimb);
 
+    // m_triareas中的数据已经存贮到了span中，m_triareas可以删除了
 	if (!m_keepInterResults)
 	{
 		delete [] m_triareas;
@@ -448,19 +460,24 @@ bool Sample_SoloMesh::handleBuild()
 	
 	//
 	// Step 3. Filter walkables surfaces.
-	//
+	// 步骤3：过滤可行走的表面
 	
 	// Once all geoemtry is rasterized, we do initial pass of filtering to
 	// remove unwanted overhangs caused by the conservative rasterization
 	// as well as filter spans where the character cannot possibly stand.
+    // 一旦所有的几何体都被栅格化了，我们移除掉因“保守光栅化”引起的的无用的悬崖，以及角色不可能站立的位置。
+    
+    // 在walkableClimb范围内，允许从低一级span过渡到当前span。可能是楼梯或路的边缘。
 	rcFilterLowHangingWalkableObstacles(m_ctx, m_cfg.walkableClimb, *m_solid);
+    // 过滤掉峭壁。也就是将峭壁两侧的span设置为不可走。
 	rcFilterLedgeSpans(m_ctx, m_cfg.walkableHeight, m_cfg.walkableClimb, *m_solid);
+    // 过滤掉上下间隔太小的span。
 	rcFilterWalkableLowHeightSpans(m_ctx, m_cfg.walkableHeight, *m_solid);
 
 
 	//
 	// Step 4. Partition walkable surface to simple regions.
-	//
+	// 步骤4：将可走表面分割成简单范围
 
 	// Compact the heightfield so that it is faster to handle from now on.
 	// This will result more cache coherent data as well as the neighbours

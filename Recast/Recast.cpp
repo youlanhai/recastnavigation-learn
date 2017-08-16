@@ -221,6 +221,7 @@ bool rcCreateHeightfield(rcContext* /*ctx*/, rcHeightfield& hf, int width, int h
 	rcVcopy(hf.bmax, bmax);
 	hf.cs = cs;
 	hf.ch = ch;
+    // rcSpan类型二维数组，类似于二维网格插槽，每个插槽可以插入rcSpan类型的链表，表示高度区间
 	hf.spans = (rcSpan**)rcAlloc(sizeof(rcSpan*)*hf.width*hf.height, RC_ALLOC_PERM);
 	if (!hf.spans)
 		return false;
@@ -236,7 +237,7 @@ static void calcTriNormal(const float* v0, const float* v1, const float* v2, flo
 	rcVcross(norm, e0, e1);
 	rcVnormalize(norm);
 }
-//近标记可走三角形的area id，不修改非可走三角形的域
+/// 近标记可走三角形的area id，不修改非可走三角形的域
 /// @par
 ///
 /// Only sets the aread id's for the walkable triangles.  Does not alter the
@@ -262,6 +263,9 @@ void rcMarkWalkableTriangles(rcContext* /*ctx*/, const float walkableSlopeAngle,
 		const int* tri = &tris[i*3];
 		calcTriNormal(&verts[tri[0]*3], &verts[tri[1]*3], &verts[tri[2]*3], norm);
 		// Check if the face is walkable.
+        // norm是平面的法线。norm.y = r * sin(a)，而r = 1, 坡度b = a - 90，用b替换掉a
+        // norm.y = sin(a) = sin(b + 90) = cos(b)
+        // 角度b越小，则cos(b)越大。也就是norm.y越大。
 		if (norm[1] > walkableThr)
 			areas[i] = RC_WALKABLE_AREA;
 	}

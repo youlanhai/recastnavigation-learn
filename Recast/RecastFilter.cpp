@@ -33,6 +33,7 @@
 /// #rcFilterLedgeSpans after calling this filter. 
 ///
 /// @see rcHeightfield, rcConfig
+/// 允许可走的区域包含低于自己的物体。比如路边缘，阶梯边缘等。两个邻接span可走的条件是，两个span的上表面高度差小于walkableClimb。
 void rcFilterLowHangingWalkableObstacles(rcContext* ctx, const int walkableClimb, rcHeightfield& solid)
 {
 	rcAssert(ctx);
@@ -46,15 +47,19 @@ void rcFilterLowHangingWalkableObstacles(rcContext* ctx, const int walkableClimb
 	{
 		for (int x = 0; x < w; ++x)
 		{
+            // prev span 前一个span
 			rcSpan* ps = 0;
 			bool previousWalkable = false;
 			unsigned char previousArea = RC_NULL_AREA;
 			
+            // s当前span。从低到高的遍历span
 			for (rcSpan* s = solid.spans[x + y*w]; s; ps = s, s = s->next)
 			{
 				const bool walkable = s->area != RC_NULL_AREA;
 				// If current span is not walkable, but there is walkable
 				// span just below it, mark the span above it walkable too.
+                // 如果当前的span不可走，前一个span可走，如果能够从前一个span走上来，
+                // 那么，当前span也变成了可走的。
 				if (!walkable && previousWalkable)
 				{
 					if (rcAbs((int)s->smax - (int)ps->smax) <= walkableClimb)
@@ -81,6 +86,9 @@ void rcFilterLowHangingWalkableObstacles(rcContext* ctx, const int walkableClimb
 /// A span is a ledge if: <tt>rcAbs(currentSpan.smax - neighborSpan.smax) > walkableClimb</tt>
 /// 
 /// @see rcHeightfield, rcConfig
+/// 过滤峭壁span。峭壁是指，一个span有一个或多个高度值远大于/小于自己(walkableClimb)的邻接点。
+/// 该方法移除掉“保守体素化”高估产生的影响，因此，最终的mesh中，不会有位于峭壁之上悬挂在空中的span。
+/// **结果就是，位于峭壁两侧的span，都将是不可通过的。**
 void rcFilterLedgeSpans(rcContext* ctx, const int walkableHeight, const int walkableClimb,
 						rcHeightfield& solid)
 {
@@ -177,6 +185,7 @@ void rcFilterLedgeSpans(rcContext* ctx, const int walkableHeight, const int walk
 /// maximum to the next higher span's minimum. (Same grid column.)
 /// 
 /// @see rcHeightfield, rcConfig
+/// 过滤掉空隙较小的的span。上下两个span间隙太小的话，不能通行。
 void rcFilterWalkableLowHeightSpans(rcContext* ctx, int walkableHeight, rcHeightfield& solid)
 {
 	rcAssert(ctx);

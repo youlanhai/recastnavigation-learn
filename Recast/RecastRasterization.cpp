@@ -84,13 +84,23 @@ static void freeSpan(rcHeightfield& hf, rcSpan* ptr)
 	hf.freelist = ptr;
 }
 
+/** 添加一个区间
+ @param hf      高度场数据结构
+ @param x       格子坐标x
+ @param y       格子坐标z
+ @param smin    y方向上的最小值
+ @param smax    y方向上的最大值
+ @param area    是否可通行
+ @param flagMergeThr 爬行高度
+ */
 static void addSpan(rcHeightfield& hf, const int x, const int y,
 					const unsigned short smin, const unsigned short smax,
 					const unsigned char area, const int flagMergeThr)
 {
-	
+	// 得到二维数组索引
 	int idx = x + y*hf.width;
 	
+    // 分配区间数据结构
 	rcSpan* s = allocSpan(hf);
 	s->smin = smin;
 	s->smax = smax;
@@ -177,30 +187,42 @@ void rcAddSpan(rcContext* /*ctx*/, rcHeightfield& hf, const int x, const int y,
 	addSpan(hf, x,y, smin, smax, area, flagMergeThr);
 }
 
-//使用平面切割多边形。
-//pnx, pnz:平面法线
-//pd:平面距离
-//返回在平面正向上的点的个数。
+/** 使用平面切割多边形。这里只沿着垂直方向(x=d or z = d)切，不管水平方向。所以法线y一直是0，就不用传参了。
+ @param in      输入多边形的顶点数据
+ @param n       输入顶点的数量
+ @param pnx     平面法线的x值
+ @param pnz     平面法线的z值
+ @param pd      平面距离的负值
+ @return 返回在平面正向上的点的个数。
+ 
+ 平面方程：p = n * d
+ 
+ */
 static int clipPoly(const float* in, int n, float* out, float pnx, float pnz, float pd)
 {
-	float d[12];//点到平面的距离
+	float d[12];//点到平面的距离。12表示最多12边形
+    
+    // 点乘求得顶点到平面的距离 d[i] = dot(vertex[i], pNormal) - pd
+    // pd外面传了负值，所以下面的公式就变成了加上pd
 	for (int i = 0; i < n; ++i)
-		d[i] = pnx*in[i*3+0] + pnz*in[i*3+2] + pd;//点乘求距离
+		d[i] = pnx*in[i*3+0] + pnz*in[i*3+2] + pd;
 	
 	int m = 0;
+    // i表示当前顶点的索引，j表示上一个顶点的索引
 	for (int i = 0, j = n-1; i < n; j=i, ++i)
 	{
-		bool ina = d[j] >= 0;
-		bool inb = d[i] >= 0;
-		if (ina != inb)//前后两点不在同一方向，插值计算交点，将交点记录下来。
+		bool ina = d[j] >= 0; //起点
+		bool inb = d[i] >= 0; //终点
+		if (ina != inb)//前后两点不在同一侧，插值计算交点，将交点记录下来。
 		{
 			float s = d[j] / (d[j] - d[i]);
+            // out[m] = in[j] * (1.0 - s) + in[i] * s;
 			out[m*3+0] = in[j*3+0] + (in[i*3+0] - in[j*3+0])*s;
 			out[m*3+1] = in[j*3+1] + (in[i*3+1] - in[j*3+1])*s;
 			out[m*3+2] = in[j*3+2] + (in[i*3+2] - in[j*3+2])*s;
 			m++;
 		}
-		if (inb)//都在正面，则记下该点。
+		if (inb)//终点在正面，则记下该点。
 		{
 			out[m*3+0] = in[i*3+0];
 			out[m*3+1] = in[i*3+1];
@@ -211,7 +233,19 @@ static int clipPoly(const float* in, int n, float* out, float pnx, float pnz, fl
 	return m;
 }
 
-//栅格化三角形
+/** 栅格化一个三角形
+ @param v0      顶点1
+ @param v1      顶点2
+ @param v2      顶点3
+ @param area    是否可通过。
+ @param hf      高度域（体素数据结构）
+ @param bmin    世界包围盒最小点(xyz)
+ @param bmax    世界包围盒最大点(xyz)
+ @param cs      cell size，单元格水平(xz)尺寸。ch表示单元格的高度值(cell height)。
+ @param ics     1 / cs。用于快速计算除法 n = x / cs
+ @param ich     1 / ch。用于快速计算除法 n = y / ch
+ @param flagMergeThr 最大爬行高度
+ */
 static void rasterizeTri(const float* v0, const float* v1, const float* v2,
 						 const unsigned char area, rcHeightfield& hf,
 						 const float* bmin, const float* bmax,
@@ -237,12 +271,13 @@ static void rasterizeTri(const float* v0, const float* v1, const float* v2,
 	if (!overlapBounds(bmin, bmax, tmin, tmax))
 		return;
 	
-    //计算三角形包围盒，在x、z方向上与grid包围盒的比例。
+    //计算三角形包围盒，在x、z方向上与grid包围盒的比例。也就是求得包围盒所占据单元格的范围x=[x0, x1], z=[y0, y1]。
 	// Calculate the footpring of the triangle on the grid.
 	int x0 = (int)((tmin[0] - bmin[0])*ics);
 	int y0 = (int)((tmin[2] - bmin[2])*ics);
 	int x1 = (int)((tmax[0] - bmin[0])*ics);
 	int y1 = (int)((tmax[2] - bmin[2])*ics);
+    // 如果坐标超过范围，则截取到边界。
 	x0 = rcClamp(x0, 0, w-1);
 	y0 = rcClamp(y0, 0, h-1);
 	x1 = rcClamp(x1, 0, w-1);
@@ -258,22 +293,32 @@ static void rasterizeTri(const float* v0, const float* v1, const float* v2,
 		rcVcopy(&in[0], v0);
 		rcVcopy(&in[1*3], v1);
 		rcVcopy(&in[2*3], v2);
-		int nvrow = 3;
-        //用z向上的两个格子平面，将三角形裁减到平面之间。
+        
+		int nvrow = 3; // 裁剪后的顶点数量. number vertices in row
+        
+        //将三角形裁减到z=[cz, cz+cs]平面之间。
+        
+        // 格子y坐标(z值)转换到世界坐标
 		const float cz = bmin[2] + y*cs;
+        
+        // 先用z=1方向的面裁剪，得到前面的z+。平面距离传负值，方便里面计算。
 		nvrow = clipPoly(in, nvrow, out, 0, 1, -cz);
 		if (nvrow < 3) continue;
+        // 再用z=-1方向的面裁剪，得到后面的z-。
 		nvrow = clipPoly(out, nvrow, inrow, 0, -1, cz+cs);
 		if (nvrow < 3) continue;
 		
 		for (int x = x0; x <= x1; ++x)
 		{
-            //用x向上的两个格子平面，将三角形裁减到平面之间。
+            // 将三角形裁减到x=[cx, cx+cs]平面之间。
+            
 			// Clip polygon to column.
 			int nv = nvrow;
 			const float cx = bmin[0] + x*cs;
+            // 裁剪得到前面
 			nv = clipPoly(inrow, nv, out, 1, 0, -cx);
 			if (nv < 3) continue;
+            // 裁剪得到后面
 			nv = clipPoly(out, nv, in, -1, 0, cx+cs);
 			if (nv < 3) continue;
 			
@@ -290,7 +335,7 @@ static void rasterizeTri(const float* v0, const float* v1, const float* v2,
 			smin -= bmin[1];
 			smax -= bmin[1];
 
-            //判断新多变形，是否与包围盒相交
+            //判断新多变形，是否与世界包围盒相交
 			// Skip the span if it is outside the heightfield bbox
 			if (smax < 0.0f) continue;//整个多边形位于包围盒之下，即不相交
 			if (smin > by) continue;
@@ -328,7 +373,7 @@ void rcRasterizeTriangle(rcContext* ctx, const float* v0, const float* v1, const
 	ctx->stopTimer(RC_TIMER_RASTERIZE_TRIANGLES);
 }
 
-//栅格化三角形列表
+/// 栅格化三角形列表。转换成体素，或者叫Span
 /// @par
 ///
 /// Spans will only be added for triangles that overlap the heightfield grid.
