@@ -546,7 +546,7 @@ bool Sample_SoloMesh::handleBuild()
 
 	//
 	// Step 5. Trace and simplify region contours.
-	//
+	// 步骤5：追踪并且简化地区轮廓
 	
 	// Create contours.
 	m_cset = rcAllocContourSet();
@@ -563,7 +563,7 @@ bool Sample_SoloMesh::handleBuild()
 	
 	//
 	// Step 6. Build polygons mesh from contours.
-	//
+	// 步骤6：从轮廓生成多边形网格
 	
 	// Build polygon navmesh from the contours.
 	m_pmesh = rcAllocPolyMesh();
@@ -580,7 +580,7 @@ bool Sample_SoloMesh::handleBuild()
 	
 	//
 	// Step 7. Create detail mesh which allows to access approximate height on each polygon.
-	//
+	// 步骤7：生成细节网格，能够得到每个多边形上更近似的高度值
 	
 	m_dmesh = rcAllocPolyMeshDetail();
 	if (!m_dmesh)

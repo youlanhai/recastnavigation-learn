@@ -156,26 +156,39 @@ inline int computeVertexHash(int x, int y, int z)
 	return (int)(n & (VERTEX_BUCKET_COUNT-1));
 }
 
+/// 将顶点(xyz)添加顶点列表verts中，剔除掉重复的顶点。
+/// @param x,y,z    待添加点的坐标
+/// @param verts    顶点数组
+/// @param fistVert 顶点hash表，可以快速定位重复的顶点
+/// @param nextVert hash表的开放链表，当出现hash冲突的时候，数据会记录到开放链表中
+/// @param nv       顶点数量。如果新添加顶点成功，则nv会+1
+/// @return 返回新添加顶点的索引，如果存在重复点，则返回重复点的索引。
 static unsigned short addVertex(unsigned short x, unsigned short y, unsigned short z,
 								unsigned short* verts, int* firstVert, int* nextVert, int& nv)
 {
 	int bucket = computeVertexHash(x, 0, z);
+    // 第一次hash，得到位置
 	int i = firstVert[bucket];
 	
 	while (i != -1)
 	{
+        // 执行到这里，说明产生了hash冲突。
+        
 		const unsigned short* v = &verts[i*3];
+        // 待添加的点与v点重合，直接返回v点的索引
 		if (v[0] == x && (rcAbs(v[1] - y) <= 2) && v[2] == z)
 			return (unsigned short)i;
 		i = nextVert[i]; // next
 	}
 	
 	// Could not find, create new.
+    // 如果不是重复点，则新建一个顶点，顶点数量+1.
 	i = nv; nv++;
 	unsigned short* v = &verts[i*3];
 	v[0] = x;
 	v[1] = y;
 	v[2] = z;
+    // 记录在链表中
 	nextVert[i] = firstVert[bucket];
 	firstVert[bucket] = i;
 	
@@ -970,6 +983,11 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 /// limit must be retricted to <= #DT_VERTS_PER_POLYGON.
 ///
 /// @see rcAllocPolyMesh, rcContourSet, rcPolyMesh, rcConfig
+/// 生成多边形网格。注意：如果网格数据是用于Detour导航网格，那么最大顶点数必须限制在DT_VERTS_PER_POLYGON及以内
+/// @param ctx   上下文
+/// @param cset  轮廓集合
+/// @param nvp   多边形最大顶点数
+/// @param mesh  输出多边形网格
 bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMesh& mesh)
 {
 	rcAssert(ctx);
@@ -1026,6 +1044,7 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'mesh.polys' (%d).", maxTris*nvp*2);
 		return false;
 	}
+    //区域id数组
 	mesh.regs = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxTris, RC_ALLOC_PERM);
 	if (!mesh.regs)
 	{
@@ -1048,7 +1067,10 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 	memset(mesh.polys, 0xff, sizeof(unsigned short)*maxTris*nvp*2);
 	memset(mesh.regs, 0, sizeof(unsigned short)*maxTris);
 	memset(mesh.areas, 0, sizeof(unsigned char)*maxTris);
+    
+    // 下面会使用一个顶点hash表，用来清除重复的顶点。比如两个相交的轮廓，必然有公共点，下面可以去除公共点。
 	
+    // 顶点hash表的开发链表，存贮hash冲突后的顶点索引
 	rcScopedDelete<int> nextVert = (int*)rcAlloc(sizeof(int)*maxVertices, RC_ALLOC_TEMP);
 	if (!nextVert)
 	{
@@ -1057,6 +1079,7 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 	}
 	memset(nextVert, 0, sizeof(int)*maxVertices);
 	
+    // 存放顶点索引的hash表，用于快速清除重复顶点
 	rcScopedDelete<int> firstVert = (int*)rcAlloc(sizeof(int)*VERTEX_BUCKET_COUNT, RC_ALLOC_TEMP);
 	if (!firstVert)
 	{
@@ -1066,6 +1089,7 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 	for (int i = 0; i < VERTEX_BUCKET_COUNT; ++i)
 		firstVert[i] = -1;
 	
+    // 顶点在顶点数组中索引。重复的顶点(公共点)会指向同一个索引。
 	rcScopedDelete<int> indices = (int*)rcAlloc(sizeof(int)*maxVertsPerCont, RC_ALLOC_TEMP);
 	if (!indices)
 	{
@@ -1117,7 +1141,7 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 			ntris = -ntris;
 		}
 				
-        //将cont的顶点添加到mesh的顶点列表中。
+        // 三角化之后的点添加到mesh的顶点列表中。这一步会消除公共点。
 		// Add and merge vertices.
 		for (int j = 0; j < cont.nverts; ++j)
 		{
@@ -1127,6 +1151,7 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 			if (v[3] & RC_BORDER_VERTEX)
 			{
 				// This vertex should be removed.
+                // 这是位于地图边界上的顶点，需要移除
 				vflags[indices[j]] = 1;
 			}
 		}

@@ -100,11 +100,18 @@ static int getCornerHeight(int x, int y, int i, int dir,
 	return ch;
 }
 
+/// 沿着轮廓走，找出所有的轮廓点
+/// @param x,y  单元格坐标
+/// @param i    span索引
+/// @param chf  紧凑型高度场
+/// @param flags span的4个邻接点连通信息的数组。如果某个方向不连通，那么对应的bit就是1。
+/// @param points 向外输出轮廓点
 static void walkContour(int x, int y, int i,
 						rcCompactHeightfield& chf,
 						unsigned char* flags, rcIntArray& points)
 {
 	// Choose the first non-connected edge
+    // 找到第一个不连续的方向
 	unsigned char dir = 0;
 	while ((flags[i] & (1 << dir)) == 0)
 		dir++;
@@ -117,6 +124,7 @@ static void walkContour(int x, int y, int i,
 	int iter = 0;
 	while (++iter < 40000)
 	{
+        // 该方向上不连通
 		if (flags[i] & (1 << dir))
 		{
 			// Choose the edge corner
@@ -603,6 +611,7 @@ static bool mergeContours(rcContour& ca, rcContour& cb, int ia, int ib)
 /// See the #rcConfig documentation for more information on the configuration parameters.
 /// 
 /// @see rcAllocContourSet, rcCompactHeightfield, rcContourSet, rcConfig
+/// 构建轮廓。原始的轮廓会恰好覆盖地区的轮廓线。maxError和maxEdgeLen参数控制了简化的轮廓如何接近原始的轮廓。
 bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 					 const float maxError, const int maxEdgeLen,
 					 rcContourSet& cset, const int buildFlags)
@@ -620,6 +629,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 	if (borderSize > 0)
 	{
 		// If the heightfield was build with bordersize, remove the offset.
+        // 如果设置了边界，就将包围盒缩小一些
 		const float pad = borderSize*chf.cs;
 		cset.bmin[0] += pad;
 		cset.bmin[2] += pad;
@@ -648,6 +658,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 	ctx->startTimer(RC_TIMER_BUILD_CONTOURS_TRACE);
 	
 	// Mark boundaries.
+    // 标记处轮廓的边界
 	for (int y = 0; y < h; ++y)
 	{
 		for (int x = 0; x < w; ++x)
@@ -672,10 +683,13 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 						const int ai = (int)chf.cells[ax+ay*w].index + rcGetCon(s, dir);
 						r = chf.spans[ai].reg;
 					}
+                    // 如果可通过，则地区id相等
 					if (r == chf.spans[i].reg)
 						res |= (1 << dir);
 				}
-                //求反，标记不可通的边
+                //求反，标记不可通的边。
+                //如果全部可以通过，则res=0xf，异或的结果就是0
+                //反之，至少存在一个非0值
 				flags[i] = res ^ 0xf; // Inverse, mark non connected edges.
 			}
 		}
@@ -706,10 +720,12 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 				verts.resize(0);
 				simplified.resize(0);
 
+                // 找到轮廓上的点
 				ctx->startTimer(RC_TIMER_BUILD_CONTOURS_TRACE);
 				walkContour(x, y, i, chf, flags, verts);
 				ctx->stopTimer(RC_TIMER_BUILD_CONTOURS_TRACE);
 
+                // 简化轮廓
 				ctx->startTimer(RC_TIMER_BUILD_CONTOURS_SIMPLIFY);
 				simplifyContour(verts, simplified, maxError, maxEdgeLen, buildFlags);
 				removeDegenerateSegments(simplified);

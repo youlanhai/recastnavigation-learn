@@ -414,25 +414,34 @@ struct rcContour
 {
     //简化的轮廓顶点和连接数据
 	int* verts;			///< Simplified contour vertex and connection data. [Size: 4 * #nverts]
-	int nverts;			///< The number of vertices in the simplified contour. 
+	int nverts;			///< The number of vertices in the simplified contour.
+    
 	int* rverts;		///< Raw contour vertex and connection data. [Size: 4 * #nrverts]
-	int nrverts;		///< The number of vertices in the raw contour. 
+	int nrverts;		///< The number of vertices in the raw contour.
+    // 地区的id
 	unsigned short reg;	///< The region id of the contour.
+    // 地区的可走标记
 	unsigned char area;	///< The area id of the contour.
 };
 
 /// Represents a group of related contours.
 /// @ingroup recast
+/// 记录了轮廓数据。
 struct rcContourSet
 {
+    // 轮廓数组
 	rcContour* conts;	///< An array of the contours in the set. [Size: #nconts]
 	int nconts;			///< The number of contours in the set.
+    // 世界包围盒
 	float bmin[3];  	///< The minimum bounds in world space. [(x, y, z)]
 	float bmax[3];		///< The maximum bounds in world space. [(x, y, z)]
+    // 单元格尺寸
 	float cs;			///< The size of each cell. (On the xz-plane.)
 	float ch;			///< The height of each cell. (The minimum increment along the y-axis.)
+    // 单元格数量
 	int width;			///< The width of the set. (Along the x-axis in cell units.) 
-	int height;			///< The height of the set. (Along the z-axis in cell units.) 
+	int height;			///< The height of the set. (Along the z-axis in cell units.)
+    // 地图边界宽度
 	int borderSize;		///< The AABB border size used to generate the source data from which the contours were derived.
 };
 
@@ -449,8 +458,11 @@ struct rcPolyMesh
     //第二部分表示公共边所邻接多边形，如果不是公共边，则可能记录边界信息。
     //故，容量为实际poly数*2
 	unsigned short* polys;	///< Polygon and neighbor data. [Length: #maxpolys * 2 * #nvp]
+    //地区的id数组
 	unsigned short* regs;	///< The region id assigned to each polygon. [Length: #maxpolys]
+    //用户为每个多边形指定的额外参数
 	unsigned short* flags;	///< The user defined flags for each polygon. [Length: #maxpolys]
+    //每个多边形的可行走标记
 	unsigned char* areas;	///< The area id assigned to each polygon. [Length: #maxpolys]
     //顶点数
 	int nverts;				///< The number of vertices.
@@ -470,6 +482,7 @@ struct rcPolyMesh
     //cell的尺寸
 	float cs;				///< The size of each cell. (On the xz-plane.)
 	float ch;				///< The height of each cell. (The minimum increment along the y-axis.)
+    // 世界地图的边界宽度
 	int borderSize;			///< The AABB border size used to generate the source data from which the mesh was derived.
 };
 
