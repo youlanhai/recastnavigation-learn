@@ -111,7 +111,7 @@ static void walkContour(int x, int y, int i,
 						unsigned char* flags, rcIntArray& points)
 {
 	// Choose the first non-connected edge
-    // 找到第一个不连续的方向
+    // 找到一个不可走的方向
 	unsigned char dir = 0;
 	while ((flags[i] & (1 << dir)) == 0)
 		dir++;
@@ -124,7 +124,7 @@ static void walkContour(int x, int y, int i,
 	int iter = 0;
 	while (++iter < 40000)
 	{
-        // 该方向上不连通
+        // 该方向上不连通(不可走)
 		if (flags[i] & (1 << dir))
 		{
 			// Choose the edge corner
@@ -239,6 +239,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 							const float maxError, const int maxEdgeLen, const int buildFlags)
 {
 	// Add initial points.
+	// 是否有连接到外部区域的点
 	bool hasConnections = false;
 	for (int i = 0; i < points.size(); i += 4)
 	{
@@ -253,17 +254,21 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 	{
 		// The contour has some portals to other regions.
 		// Add a new point to every location where the region changes.
+		// 轮廓点连接到了其他区域。
+		// 将交叉点加入集合。交叉点是指点与邻接点所连接的区域不一致
 		for (int i = 0, ni = points.size()/4; i < ni; ++i)
 		{
 			int ii = (i+1) % ni;
+			// 连接的不是同一个区域
 			const bool differentRegs = (points[i*4+3] & RC_CONTOUR_REG_MASK) != (points[ii*4+3] & RC_CONTOUR_REG_MASK);
+			// 连接的是不同的边界
 			const bool areaBorders = (points[i*4+3] & RC_AREA_BORDER) != (points[ii*4+3] & RC_AREA_BORDER);
 			if (differentRegs || areaBorders)
 			{
 				simplified.push(points[i*4+0]);
 				simplified.push(points[i*4+1]);
 				simplified.push(points[i*4+2]);
-				simplified.push(i);
+				simplified.push(i); // 注意这里插入的是索引，后面会计算索引之间的点
 			}
 		}       
 	}
@@ -273,6 +278,8 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 		// If there is no connections at all,
 		// create some initial points for the simplification process. 
 		// Find lower-left and upper-right vertices of the contour.
+		// 如果没有找到连接到外部的点，则创建一些初始点用来计算。
+		// 找到左下角和右上角的点
 		int llx = points[0];
 		int lly = points[1];
 		int llz = points[2];
@@ -314,6 +321,8 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 	
 	// Add points until all raw points are within
 	// error tolerance to the simplified shape.
+	// 将两个"确定点"之间的其他符合条件的待定点，插入到集合中。
+	// 符合条件的点是：点到两个"确定点"构成的线段的距离大于误差阈值
 	const int pn = points.size()/4;
 	for (int i = 0; i < simplified.size()/4; )
 	{
@@ -352,6 +361,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 		if ((points[ci*4+3] & RC_CONTOUR_REG_MASK) == 0 ||
 			(points[ci*4+3] & RC_AREA_BORDER))
 		{
+			// 把两个"确定点"连线，找出距离线段最远的待定点
 			while (ci != endi)
 			{
 				float d = distancePtSeg(points[ci*4+0], points[ci*4+2], ax, az, bx, bz);
@@ -367,11 +377,14 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 		
 		// If the max deviation is larger than accepted error,
 		// add new point, else continue to next segment.
+		// 如果最远的点超过了距离阈值，则将该点插入到集合中
 		if (maxi != -1 && maxd > (maxError*maxError))
 		{
+			// 将maxi点插入到数组中
 			// Add space for the new point.
 			simplified.resize(simplified.size()+4);
 			const int n = simplified.size()/4;
+			// 元素后移，流出位置
 			for (int j = n-1; j > i; --j)
 			{
 				simplified[j*4+0] = simplified[(j-1)*4+0];
@@ -392,6 +405,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 	}
 	
 	// Split too long edges.
+	// 分割太长的边
 	if (maxEdgeLen > 0 && (buildFlags & (RC_CONTOUR_TESS_WALL_EDGES|RC_CONTOUR_TESS_AREA_EDGES)) != 0)
 	{
 		for (int i = 0; i < simplified.size()/4; )
@@ -428,9 +442,11 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 					// Round based on the segments in lexilogical order so that the
 					// max tesselation is consistent regardles in which direction
 					// segments are traversed.
+					// 两个确定点之间的待定点数量
 					const int n = bi < ai ? (bi+pn - ai) : (bi - ai);
 					if (n > 1)
 					{
+						// 取中点
 						if (bx > ax || (bx == ax && bz > az))
 							maxi = (ai + n/2) % pn;
 						else
@@ -443,6 +459,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 			// add new point, else continue to next segment.
 			if (maxi != -1)
 			{
+				// 将新点插入到两个"确定点"之间
 				// Add space for the new point.
 				simplified.resize(simplified.size()+4);
 				const int n = simplified.size()/4;
@@ -470,8 +487,8 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 	{
 		// The edge vertex flag is take from the current raw point,
 		// and the neighbour region is take from the next raw point.
-		const int ai = (simplified[i*4+3]+1) % pn;
-		const int bi = simplified[i*4+3];
+		const int bi = simplified[i * 4 + 3];
+		const int ai = (bi + 1) % pn;
 		simplified[i*4+3] = (points[ai*4+3] & (RC_CONTOUR_REG_MASK|RC_AREA_BORDER)) | (points[bi*4+3] & RC_BORDER_VERTEX);
 	}
 	
@@ -648,6 +665,9 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 		return false;
 	cset.nconts = 0;
 	
+	// 记录每个span是否位于边界上，0: 否，v：每bit代表了这个方向上是否有障碍物。
+	// 边界的定义是：周围4个方向，至少有一处不可走和一处可走。
+	// 周围全部可走，和全部不可走，都不是边界。
 	rcScopedDelete<unsigned char> flags = (unsigned char*)rcAlloc(sizeof(unsigned char)*chf.spanCount, RC_ALLOC_TEMP);
 	if (!flags)
 	{
@@ -668,7 +688,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 			{
 				unsigned char res = 0;
 				const rcCompactSpan& s = chf.spans[i];
-				if (!chf.spans[i].reg || (chf.spans[i].reg & RC_BORDER_REG))
+				if (!chf.spans[i].reg || (chf.spans[i].reg & RC_BORDER_REG)) // 不可走，或者位于地图边缘上
 				{
 					flags[i] = 0;
 					continue;

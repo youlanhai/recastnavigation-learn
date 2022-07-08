@@ -1033,7 +1033,7 @@ static void paintRectRegion(int minx, int maxx, int miny, int maxy, unsigned sho
 
 static const unsigned short RC_NULL_NEI = 0xffff;
 
-/// 逐行扫描区间
+/// 逐行扫描的地区信息：id，span数量，邻接地区
 struct rcSweepSpan
 {
     // 一行内的id。连续的区间，id相同
@@ -1045,6 +1045,13 @@ struct rcSweepSpan
     // 上侧邻接点的地区id。
 	unsigned short nei;	// neighbour id
 };
+
+static int getNeighbourSpanIndex(const rcCompactSpan& s, int x, int y, rcDIR dir, rcCompactHeightfield& chf)
+{
+	int ax = x + rcGetDirOffsetX(dir);
+	int ay = y + rcGetDirOffsetY(dir);
+	return (int)chf.cells[ax + ay * chf.width].index + rcGetCon(s, dir);
+}
 
 /// @par
 /// 
@@ -1079,8 +1086,11 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 	
 	const int w = chf.width;
 	const int h = chf.height;
+
+	// 地区id分配器计数
 	unsigned short id = 1;
 	
+	// 记录每个span的所在地区id
 	rcScopedDelete<unsigned short> srcReg = (unsigned short*)rcAlloc(sizeof(unsigned short)*chf.spanCount, RC_ALLOC_TEMP);
 	if (!srcReg)
 	{
@@ -1090,6 +1100,7 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 	memset(srcReg,0,sizeof(unsigned short)*chf.spanCount);
 
 	const int nsweeps = rcMax(chf.width,chf.height);
+	// 记录一个扫描行中的地区信息
 	rcScopedDelete<rcSweepSpan> sweeps = (rcSweepSpan*)rcAlloc(sizeof(rcSweepSpan)*nsweeps, RC_ALLOC_TEMP);
 	if (!sweeps)
 	{
@@ -1108,18 +1119,34 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 		const int bh = rcMin(h, borderSize);
 		// Paint regions
         // 标记左边界地区
-		paintRectRegion(0, bw, 0, h, id|RC_BORDER_REG, chf, srcReg); id++;
+		paintRectRegion(0, bw, 0, h, id|RC_BORDER_REG, chf, srcReg);
+		id++;
         // 标记右边界地区
-		paintRectRegion(w-bw, w, 0, h, id|RC_BORDER_REG, chf, srcReg); id++;
+		paintRectRegion(w-bw, w, 0, h, id|RC_BORDER_REG, chf, srcReg);
+		id++;
         // 标记上边界地区
-		paintRectRegion(0, w, 0, bh, id|RC_BORDER_REG, chf, srcReg); id++;
+		paintRectRegion(0, w, 0, bh, id|RC_BORDER_REG, chf, srcReg);
+		id++;
         // 标记下边界地区
-		paintRectRegion(0, w, h-bh, h, id|RC_BORDER_REG, chf, srcReg); id++;
+		paintRectRegion(0, w, h-bh, h, id|RC_BORDER_REG, chf, srcReg);
+		id++;
 		
 		chf.borderSize = borderSize;
 	}
 	
+	// 地区共享次数。区域id对应的span共享次数，用来识别孔洞。
 	rcIntArray prev(256);
+
+	/* 孔洞识别算法：
+	* 从上到下逐行扫描；
+	* 每行，从左到右扫描；
+	* 结点与左侧结点组成区域；
+	* 并尝试与上侧结点共享区域。若与上侧结点被共享成功，则增加其共享计数；
+	* 当扫描线遇到孔之后，局部id会中断(rid增加，sweep信息记录中断)，并新增一个地区。
+	* 新增地区的共享计数是从0开始的，左侧地区的共享计数是停滞的，但是共享的地区计数会累积增加的。
+	* 也就是说上一行被共享地区的计数，和孔的两边地区的计数是不一致的。
+	* 只要计数不一致，就会独立成新的地区，不会和共享地区合并。
+	*/
 
     // 处理非边界地区。每次扫描一行
     // 从地图左上角开始，向右下角逐一处理
@@ -1129,7 +1156,7 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 		// Collect spans from this row.
 		prev.resize(id+1);
 		memset(&prev[0],0,sizeof(int)*id);
-        // 一行内的id，只要中间断开了，行id就加1
+        // 一行内的局部id，只要中间断开了，行id就加1
 		unsigned short rid = 1;
 		// 类似光栅化一样，从左侧到右侧逐一扫描，让右侧的地区编号尽量与左侧和上侧的保持一致。
         // 如果中途遇到障碍物断开了，断开点向后的点可以归为新的区域id。
@@ -1140,18 +1167,19 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 			for (int i = (int)c.index, ni = (int)(c.index+c.count); i < ni; ++i)
 			{
 				const rcCompactSpan& s = chf.spans[i];
-				if (chf.areas[i] == RC_NULL_AREA) continue;
+				if (chf.areas[i] == RC_NULL_AREA)
+					continue;
 				
-				// -x 先判断左侧，跟左侧点的地区编号保持相同
+				// 先判断左侧，跟左侧点的地区编号保持相同
 				unsigned short previd = 0;
-				if (rcGetCon(s, 0) != RC_NOT_CONNECTED)
+				if (rcGetCon(s, rcDIR_LEFT) != RC_NOT_CONNECTED)
 				{
-					const int ax = x + rcGetDirOffsetX(0);
-					const int ay = y + rcGetDirOffsetY(0);
-					const int ai = (int)chf.cells[ax+ay*w].index + rcGetCon(s, 0);
+					const int ai = getNeighbourSpanIndex(s, x, y, rcDIR_LEFT, chf);
 					if ((srcReg[ai] & RC_BORDER_REG) == 0 && // 邻接点不是地图边缘
-                        chf.areas[i] == chf.areas[ai]) // 可走标记也相同
+						chf.areas[ai] == chf.areas[i]) // 可走标记也相同
+					{
 						previd = srcReg[ai];
+					}
 				}
 				
 				if (!previd) // 如果左侧没有地区标记，那么新建一个地区。
@@ -1162,13 +1190,11 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 					sweeps[previd].nei = 0;
 				}
 
-				// -y 然后判断上方，如果左侧还没确定下来，那么采用上侧的。
-				if (rcGetCon(s,3) != RC_NOT_CONNECTED)
+				// 然后判断上方span的地区，建立连接关系
+				if (rcGetCon(s, rcDIR_UP) != RC_NOT_CONNECTED)
 				{
-					const int ax = x + rcGetDirOffsetX(3);
-					const int ay = y + rcGetDirOffsetY(3);
-					const int ai = (int)chf.cells[ax+ay*w].index + rcGetCon(s, 3);
-					if (srcReg[ai] && (srcReg[ai] & RC_BORDER_REG) == 0 && chf.areas[i] == chf.areas[ai])
+					int ai = getNeighbourSpanIndex(s, x, y, rcDIR_UP, chf);
+					if (srcReg[ai] && (srcReg[ai] & RC_BORDER_REG) == 0 && chf.areas[ai] == chf.areas[i])
 					{
 						unsigned short nr = srcReg[ai];
 						if (!sweeps[previd].nei || //在左侧还没有邻接点
@@ -1176,11 +1202,11 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 						{
 							sweeps[previd].nei = nr;
 							sweeps[previd].ns++; // 增加采样计数
-							prev[nr]++;
+							prev[nr]++; // 增加采样计数
 						}
 						else
 						{
-                            // 左侧和上侧的不在同一个区域，也就是说他的连接关系与上方断开了，就没有邻居。
+                            // 左侧和上侧的不在同一个区域，说明与上一行有多个连接点(上一行有孔洞)。则自己独立成一个区域。
 							sweeps[previd].nei = RC_NULL_NEI;
 						}
 					}
@@ -1191,28 +1217,34 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 		}
 		
 		// Create unique ID.
+		// 迭代地区数量。分配全局唯一id
 		for (int i = 1; i < rid; ++i)
 		{
-			if (sweeps[i].nei != RC_NULL_NEI && sweeps[i].nei != 0 &&
-				prev[sweeps[i].nei] == (int)sweeps[i].ns)
+			int sharedId = sweeps[i].nei;
+			if (sharedId != RC_NULL_NEI &&
+				sharedId != 0 &&
+				prev[sharedId] == (int)sweeps[i].ns // 一行只能被共享一次。多次共享，说明当前行中间有孔洞。
+				)
 			{
-				sweeps[i].id = sweeps[i].nei;
+				sweeps[i].id = sharedId; // 复用上一行的id
 			}
 			else
 			{
-				sweeps[i].id = id++;
+				sweeps[i].id = id++; // 使用一个新id
 			}
 		}
 		
 		// Remap IDs
+		// 将srcReg中记录的局部id映射到全局id
 		for (int x = borderSize; x < w-borderSize; ++x)
 		{
 			const rcCompactCell& c = chf.cells[x+y*w];
 			
 			for (int i = (int)c.index, ni = (int)(c.index+c.count); i < ni; ++i)
 			{
-				if (srcReg[i] > 0 && srcReg[i] < rid)
-					srcReg[i] = sweeps[srcReg[i]].id;
+				int localId = srcReg[i];
+				if (localId > 0 && localId < rid)
+					srcReg[i] = sweeps[localId].id;
 			}
 		}
 	}

@@ -563,7 +563,7 @@ bool Sample_SoloMesh::handleBuild()
 	
 	//
 	// Step 6. Build polygons mesh from contours.
-	// 步骤6：从轮廓生成多边形网格
+	// 步骤6：从轮廓生成凸多边形网格
 	
 	// Build polygon navmesh from the contours.
 	m_pmesh = rcAllocPolyMesh();

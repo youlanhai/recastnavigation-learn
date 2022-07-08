@@ -277,7 +277,7 @@ static bool vequal(const int* a, const int* b)
 	return a[0] == b[0] && a[2] == b[2];
 }
 
-//线段ij(三角形的对边)不与任何边相交（由i,j点构成的边除过）。
+//线段ij(三角形(i-1, i, i+1)的对角线)不与任何边相交（由i,j点构成的边除过）。
 // Returns T iff (v_i, v_j) is a proper internal *or* external
 // diagonal of P, *ignoring edges incident to v_i and v_j*.
 static bool diagonalie(int i, int j, int n, const int* verts, int* indices)
@@ -326,20 +326,20 @@ static bool	inCone(int i, int j, int n, const int* verts, int* indices)
 	return !(leftOn(pi, pj, pi1) && leftOn(pj, pi, pin1));
 }
 
-///对角线判断。如果(v_i, v_j)是多边形的一个对角线，则返回true
+///对角线判断。如果(v_i, v_j)是多边形(i-1, i, i+1)的一个内部对角线，则返回true
 /// Returns true if (v_i, v_j) is a proper internal diagonal of P.
 static bool diagonal(int i, int j, int n, const int* verts, int* indices)
 {
 	return inCone(i, j, n, verts, indices) && diagonalie(i, j, n, verts, indices);
 }
 
-//三角化
+//将任意非自交的多边形转换成多边形。结果可能是三角化，也可能是多边形
 static int triangulate(int n, const int* verts, int* indices, int* tris)
 {
 	int ntris = 0;
 	int* dst = tris;
 	
-    //索引的最高位，表示此顶点是否可删除。
+    //索引的最高位用来标记此顶点是否可删除。
 	// The last bit of the index is used to indicate if the vertex can be removed.
 	for (int i = 0; i < n; i++)
 	{
@@ -1004,7 +1004,7 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 	int maxTris = 0;//总三角形数
 	int maxVertsPerCont = 0;//每个轮廓的最大顶点数
 
-    //遍历n个轮廓
+    //遍历n个轮廓，统计出总顶点和面数
 	for (int i = 0; i < cset.nconts; ++i)
 	{
 		// Skip null contours.
@@ -1021,6 +1021,7 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 		return false;
 	}
 		
+	// 顶点参数
 	rcScopedDelete<unsigned char> vflags = (unsigned char*)rcAlloc(sizeof(unsigned char)*maxVertices, RC_ALLOC_TEMP);
 	if (!vflags)
 	{
@@ -1070,7 +1071,7 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
     
     // 下面会使用一个顶点hash表，用来清除重复的顶点。比如两个相交的轮廓，必然有公共点，下面可以去除公共点。
 	
-    // 顶点hash表的开发链表，存贮hash冲突后的顶点索引
+    // 顶点hash表的开放链表，存贮hash冲突后的顶点索引
 	rcScopedDelete<int> nextVert = (int*)rcAlloc(sizeof(int)*maxVertices, RC_ALLOC_TEMP);
 	if (!nextVert)
 	{

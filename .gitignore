@@ -46,3 +46,6 @@ Docs/html
 
 /build/
 RecastDemo/Bin/RecastDemo.app
+
+Debug/
+/.vs/

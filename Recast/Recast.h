@@ -1111,6 +1111,14 @@ inline int rcGetCon(const rcCompactSpan& s, int dir)
 	return (s.con >> shift) & 0x3f;
 }
 
+enum rcDIR
+{
+	rcDIR_LEFT,
+	rcDIR_DOWN,
+	rcDIR_RIGHT,
+	rcDIR_UP,
+};
+
 /// Gets the standard width (x-axis) offset for the specified direction.
 ///  @param[in]		dir		The direction. [Limits: 0 <= value < 4]
 ///  @return The width offset to apply to the current cell position to move
