@@ -49,3 +49,7 @@ RecastDemo/Bin/RecastDemo.app
 
 Debug/
 /.vs/
+*.vcxproj.user
+ipch/
+*.sdf
+*.suo

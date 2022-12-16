@@ -277,7 +277,7 @@ static bool vequal(const int* a, const int* b)
 	return a[0] == b[0] && a[2] == b[2];
 }
 
-//线段ij(三角形(i-1, i, i+1)的对角线)不与任何边相交（由i,j点构成的边除过）。
+//线段ij(三角形(i, i+1, j)的对角线)不与任何边相交（由i,j点构成的边除过）。
 // Returns T iff (v_i, v_j) is a proper internal *or* external
 // diagonal of P, *ignoring edges incident to v_i and v_j*.
 static bool diagonalie(int i, int j, int n, const int* verts, int* indices)
@@ -321,19 +321,21 @@ static bool	inCone(int i, int j, int n, const int* verts, int* indices)
 	// If P[i] is a convex vertex [ i+1 left or on (i-1,i) ].
 	if (leftOn(pin1, pi, pi1))
 		return left(pi, pj, pin1) && left(pj, pi, pi1);
+    else
 	// Assume (i-1,i,i+1) not collinear.
 	// else P[i] is reflex.
-	return !(leftOn(pi, pj, pi1) && leftOn(pj, pi, pin1));
+    	return !(leftOn(pi, pj, pi1) && leftOn(pj, pi, pin1));
 }
 
-///对角线判断。如果(v_i, v_j)是多边形(i-1, i, i+1)的一个内部对角线，则返回true
+/// 对角线判断。如果(v_i, v_j)是多边形的一个内部对角线，则返回true。
+/// 如果对角线在外部，说明此三角形内含有其他顶点，则不可删除。
 /// Returns true if (v_i, v_j) is a proper internal diagonal of P.
 static bool diagonal(int i, int j, int n, const int* verts, int* indices)
 {
 	return inCone(i, j, n, verts, indices) && diagonalie(i, j, n, verts, indices);
 }
 
-//将任意非自交的多边形转换成多边形。结果可能是三角化，也可能是多边形
+//将任意非自交的多边形转换成多边形。结果可能是三角形，也可能是多边形
 static int triangulate(int n, const int* verts, int* indices, int* tris)
 {
 	int ntris = 0;
@@ -346,7 +348,7 @@ static int triangulate(int n, const int* verts, int* indices, int* tris)
 		int i1 = next(i, n);//下个顶点索引
 		int i2 = next(i1, n);//下下个顶点索引
 		if (diagonal(i, i2, n, verts, indices))
-			indices[i1] |= 0x80000000;
+			indices[i1] |= 0x80000000; // 可删除
 	}
 	
 	while (n > 3)
