@@ -213,7 +213,7 @@ inline bool xorb(bool x, bool y)
 	return !x ^ !y;
 }
 
-//点c是否在直线a->b的左侧。
+//点c是否在线段a->b的右侧。注意：这里函数起的名字有问题。
 // Returns true iff c is strictly to the left of the directed
 // line through a to b.
 inline bool left(const int* a, const int* b, const int* c)
@@ -221,7 +221,7 @@ inline bool left(const int* a, const int* b, const int* c)
 	return area2(a, b, c) < 0;
 }
 
-//点c是否在直线a->b的左侧或其上。
+//点c是否在直线a->b的右侧或其上。
 inline bool leftOn(const int* a, const int* b, const int* c)
 {
 	return area2(a, b, c) <= 0;
@@ -305,7 +305,7 @@ static bool diagonalie(int i, int j, int n, const int* verts, int* indices)
 	return true;
 }
 
-//判断i->j是否可将i-1, i, i+1三点分开。
+//判断点i+1是否是多边形的凸点。
 // Returns true iff the diagonal (i,j) is strictly internal to the 
 // polygon P in the neighborhood of the i endpoint.
 static bool	inCone(int i, int j, int n, const int* verts, int* indices)
@@ -317,7 +317,7 @@ static bool	inCone(int i, int j, int n, const int* verts, int* indices)
 	const int* pi1 = &verts[(indices[next(i, n)] & 0x0fffffff) * 4];
 	const int* pin1 = &verts[(indices[prev(i, n)] & 0x0fffffff) * 4];
 
-    //pi1是否在pin1->pi的左侧
+    //pi1是否在pin1->pi的右侧
 	// If P[i] is a convex vertex [ i+1 left or on (i-1,i) ].
 	if (leftOn(pin1, pi, pi1))
 		return left(pi, pj, pin1) && left(pj, pi, pi1);
@@ -327,15 +327,14 @@ static bool	inCone(int i, int j, int n, const int* verts, int* indices)
     	return !(leftOn(pi, pj, pi1) && leftOn(pj, pi, pin1));
 }
 
-/// 对角线判断。如果(v_i, v_j)是多边形的一个内部对角线，则返回true。
-/// 如果对角线在外部，说明此三角形内含有其他顶点，则不可删除。
+/// 可删除性判断。如果点i+1是凸点，且(i, j)不与其他边相交，则返回true。
 /// Returns true if (v_i, v_j) is a proper internal diagonal of P.
 static bool diagonal(int i, int j, int n, const int* verts, int* indices)
 {
 	return inCone(i, j, n, verts, indices) && diagonalie(i, j, n, verts, indices);
 }
 
-//将任意非自交的多边形转换成多边形。结果可能是三角形，也可能是多边形
+//将任意非自交的多边形转换成多边形，多边形的顶点要**顺时针**排列。结果可能是三角形，也可能是多边形
 static int triangulate(int n, const int* verts, int* indices, int* tris)
 {
 	int ntris = 0;
